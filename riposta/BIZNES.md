@@ -5,36 +5,43 @@
 ## Dlaczego każdy to kupi i będzie kupował ciągle
 
 - Każdy pisze wiadomości codziennie. Kilka razy w tygodniu każdy ma wiadomość, nad którą siedzi 10 minut:
-  szef w niedzielę, ex po pół roku, randka, która odpisała „ok", teściowa, klient, który nie płaci.
+  szef w niedzielę, ex po pół roku, randka, która odpisała „ok”, teściowa, klient, który nie płaci.
 - 0,50 zł to mniej niż guma do żucia. Nikt się nad tym nie zastanawia (zakup impulsowy).
 - Problem wraca sam, więc zakup też wraca. To nie jest produkt kupowany raz.
+- Zabawa (poziom pazura, ocena 🔥, przewidywana reakcja, osiągnięcia) sprawia, że ludzie wracają też dla frajdy.
 
 ## Cennik
 
-| Wersja | Cena | Co dostajesz |
+| Wersja | Cena | Za sztukę |
 |---|---|---|
-| **Podstawowa** | **0,50 zł / riposta** | 3 odpowiedzi w 3 stylach (Na luzie, Elegancko, Z pazurem) |
-| Pakiet | 9 zł / 20 ripost | 0,45 zł za sztukę |
-| Riposta+ | 19 zł / miesiąc | bez limitu, własny styl pisania, historia rozmów |
+| **Podstawowa** | **0,50 zł / riposta** z portfela | 0,50 zł |
+| Pakiet Mały | 5 zł / 10 ripost | 0,50 zł |
+| Pakiet | 9 zł / 20 ripost | 0,45 zł |
+| Pakiet Duży | 20 zł / 50 ripost | 0,40 zł |
+| Riposta+ (później) | 19 zł / miesiąc bez limitu | wymaga płatności cyklicznych |
 
-Na start: 3 riposty za darmo, żeby każdy spróbował.
+Na start: 3 riposty gratis. Polecenie znajomemu: +5 ripost dla obu stron.
 
 ## Problem mikropłatności i jak go obchodzimy
 
 Jedna płatność BLIK/kartą na 0,50 zł mogłaby w dużej części zniknąć w prowizji operatora.
-Dlatego klient **doładowuje portfel** (10 / 20 / 50 zł), a każda riposta zdejmuje z niego 0,50 zł.
+Dlatego klient **doładowuje portfel** pakietem (od 5 zł), a każda riposta zdejmuje z niego 0,50 zł.
 Prowizję płacimy raz na doładowanie, a nie przy każdym użyciu.
 
 ## Ekonomia jednego użycia (szacunek)
 
-| Pozycja | Kwota |
-|---|---|
-| Przychód | 0,50 zł |
-| Koszt modelu AI (mały, szybki model; ok. 400 tokenów wejścia + 300 wyjścia) | ok. 0,01 zł |
-| Udział w prowizji płatniczej (ok. 0,40 zł na doładowanie 10 zł = 20 ripost) | ok. 0,02 zł |
-| **Zostaje** | **ok. 0,47 zł (ok. 94%)** |
+Jedna riposta to ok. 600 tokenów wejścia i ok. 500 tokenów wyjścia (z krótkim „myśleniem” modelu).
 
-Liczby kosztów to szacunki. Przed startem trzeba je sprawdzić w cenniku wybranego dostawcy AI i operatora płatności.
+| Pozycja | Model domyślny (Claude Opus 5.5, $4 / $20 za mln tokenów) | Model tani (Claude Haiku 5.5, $0,10 / $0,50) |
+|---|---|---|
+| Przychód | 0,50 zł | 0,50 zł |
+| Koszt AI | ok. 0,05 zł | ok. 0,001 zł |
+| Prowizja płatności (ok. 2-3% doładowania) | ok. 0,01-0,02 zł | ok. 0,01-0,02 zł |
+| **Zostaje** | **ok. 0,43 zł (ok. 86%)** | **ok. 0,48 zł (ok. 96%)** |
+
+Kurs przyjęty do szacunku: 1 USD ≈ 4 zł. Model zmienia się jedną zmienną `RIPOSTA_MODEL` w `.env`.
+Najlepiej porównać jakość obu modeli na kilkudziesięciu prawdziwych wiadomościach i wtedy zdecydować.
+Koszty prowizji sprawdź w cenniku wybranego operatora.
 
 ## Scenariusze przychodu
 
@@ -46,16 +53,14 @@ Liczby kosztów to szacunki. Przed startem trzeba je sprawdzić w cenniku wybran
 
 ## Plan na pierwsze 10 000 klientów (social media, zgodnie z filmem)
 
-1. **Format wirusowy:** screen prawdziwej, trudnej wiadomości (zanonimizowanej) → „zobacz, co odpisała Riposta" → reakcja drugiej strony.
-   Seria codziennie na TikToku, Reelsach i Shortsach.
-2. **Seria tematyczna:** „Ex pisze po roku", „Szef w niedzielę o 22:00", „Klient chce rabat", „Teściowa i święta".
-3. **Znak wodny:** każda riposta da się udostępnić jako obrazek z małym „riposta.pl", więc użytkownicy robią reklamę za darmo.
-4. **Polecenia:** poleć znajomemu → oboje dostajecie 5 darmowych ripost.
-5. **Mikroinfluencerzy** (10–50 tys. obserwujących) z tematyki randek, pracy i humoru: kod na 10 darmowych ripost.
+1. **Format wirusowy:** screen prawdziwej, trudnej wiadomości (zanonimizowanej) → „zobacz, co odpisała Riposta” → reakcja drugiej strony.
+   Seria codziennie na TikToku, Reelsach i Shortsach. Aplikacja sama robi gotowy obrazek pionowy (przycisk „Obrazek”).
+2. **Seria tematyczna:** „Ex pisze po roku”, „Szef w niedzielę o 22:00”, „Klient chce rabat”, „Teściowa i święta”.
+3. **Znak wodny:** każdy obrazek ma logo i hasło „50 groszy za idealną odpowiedź”, więc użytkownicy robią reklamę za darmo.
+4. **Polecenia:** link `?ref=KOD` → oboje dostajecie 5 darmowych ripost.
+5. **Mikroinfluencerzy** (10-50 tys. obserwujących) z tematyki randek, pracy i humoru: własny kod polecający.
+6. **Wyzwanie „Poziom pazura 5”:** użytkownicy nagrywają, jak wysyłają najostrzejszą ripostę i pokazują odpowiedź.
 
-## Co jest w prototypie
+## Co jeszcze przed startem
 
-`index.html` to działająca strona: wklejasz wiadomość, wybierasz, od kogo jest, i dostajesz 3 odpowiedzi od Claude.
-Portfel i doładowania są **symulowane** (demo, bez prawdziwych płatności). Do prawdziwego startu potrzebne są:
-backend z kluczem API, bramka płatnicza (BLIK / Przelewy24 / Stripe), regulamin i polityka prywatności (RODO),
-bo użytkownicy wklejają prywatne wiadomości.
+Lista w [README.md](README.md#checklista-przed-startem): płatności, dane firmy w regulaminie, faktury/paragony, hosting.

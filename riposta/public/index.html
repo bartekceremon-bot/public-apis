@@ -1,0 +1,172 @@
+<title>Riposta</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Nie wiesz, co odpisać? 50 groszy i masz idealną odpowiedź na każdą wiadomość.">
+<meta property="og:title" content="Riposta: 50 groszy za idealną odpowiedź">
+<meta property="og:description" content="Wklej wiadomość od ex, szefa albo teściowej. Dostajesz 3 gotowe odpowiedzi.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+
+<div class="wrap">
+  <header class="bar">
+    <a class="logo" href="./"><i aria-hidden="true"></i>Riposta</a>
+    <div class="wallet" id="wallet" aria-live="polite">
+      <span class="mini-coin" aria-hidden="true">50</span>
+      <span class="amt mono"><span id="bal">0,00 zł</span><small id="left">3 riposty gratis</small></span>
+      <button class="btn sm coin-btn" id="topupOpen" type="button">Doładuj</button>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div>
+      <h1>Nie wiesz, co odpisać? <em>50 groszy</em> i masz idealną odpowiedź.</h1>
+      <p>Wklej wiadomość od szefa, ex, randki albo teściowej. Dostajesz trzy gotowe odpowiedzi: na luzie, elegancko albo z pazurem. Kopiujesz i wysyłasz.</p>
+      <div class="ctas">
+        <a class="btn" href="#apka" id="heroCta">Napisz ripostę</a>
+        <span class="coin-tag"><b aria-hidden="true">0,50</b>3 pierwsze gratis</span>
+      </div>
+    </div>
+    <div class="phone" aria-label="Przykładowa rozmowa">
+      <div class="top"><span class="av" id="demoAv" aria-hidden="true">💔</span><div><div class="nm" id="demoName">Ex</div><div class="st" id="demoSt">pisze…</div></div></div>
+      <div class="feed" id="demoFeed"></div>
+    </div>
+  </div>
+
+  <div class="bench" id="apka">
+    <form class="panel" id="form" novalidate>
+      <h2>Na co nie wiesz, jak odpisać?</h2>
+      <span class="lbl" id="whoLbl">Od kogo?</span>
+      <div class="who" role="group" aria-labelledby="whoLbl" id="who"></div>
+      <div class="field">
+        <label for="msg">Treść wiadomości</label>
+        <textarea id="msg" maxlength="1500" placeholder="Wklej tu wiadomość…">Hej, dawno się nie odzywałeś… Wszystko ok? Bo ja ostatnio dużo o nas myślałam.</textarea>
+        <div class="count" id="count">0 / 1500</div>
+      </div>
+      <div class="field">
+        <label for="goal">Czego chcesz?</label>
+        <select id="goal" class="select">
+          <option value="">Niech Riposta zdecyduje</option>
+          <option>Chcę uprzejmie zakończyć temat</option>
+          <option>Chcę podtrzymać rozmowę</option>
+          <option>Chcę odmówić, ale nikogo nie urazić</option>
+          <option>Chcę postawić granicę</option>
+          <option>Chcę rozbawić</option>
+          <option>Chcę się umówić na spotkanie</option>
+          <option>Chcę wygrać tę kłótnię</option>
+        </select>
+      </div>
+      <label for="spice">Poziom pazura</label>
+      <div class="spice" id="spiceBox">
+        <div class="face" id="spiceFace" aria-hidden="true">😏</div>
+        <div>
+          <input type="range" id="spice" min="1" max="5" step="1" value="3" aria-describedby="spiceName">
+          <div class="name" id="spiceName">Zadziornie</div>
+          <div class="desc" id="spiceDesc">Z humorem i charakterem</div>
+        </div>
+      </div>
+      <div class="go">
+        <button class="btn" id="goBtn" type="submit">Daj mi ripostę · 0,50 zł</button>
+        <button class="btn ghost" id="stopBtn" type="button" hidden>Stop</button>
+      </div>
+      <div class="status" id="status" role="status"></div>
+    </form>
+
+    <div class="panel">
+      <h2>Twoje odpowiedzi</h2>
+      <div class="thread" id="thread"></div>
+    </div>
+  </div>
+
+  <section class="more" aria-labelledby="howH">
+    <h2 id="howH">Jak to działa</h2>
+    <div class="steps">
+      <div class="step"><div class="n">Krok 1</div><h3>Wklej wiadomość</h3><p>Tę, nad którą siedzisz od 20 minut i piszesz „hej”, a potem kasujesz.</p></div>
+      <div class="step"><div class="n">Krok 2</div><h3>Ustaw pazur</h3><p>Od anielskiej łagodności po ripostę, o której będą mówić na weselu.</p></div>
+      <div class="step"><div class="n">Krok 3</div><h3>Kopiuj i wysyłaj</h3><p>Trzy wersje do wyboru. Płacisz 50 groszy, oszczędzasz godzinę nerwów.</p></div>
+    </div>
+  </section>
+
+  <section class="more" aria-labelledby="priceH">
+    <h2 id="priceH">Doładuj portfel</h2>
+    <div class="plans" id="plans"></div>
+    <p class="status">Płacisz raz za pakiet, a każda riposta zdejmuje z portfela 0,50 zł. Środki nie wygasają.</p>
+  </section>
+
+  <section class="more" aria-labelledby="refH" id="polecaj">
+    <h2 id="refH">Poleć znajomemu, oboje dostajecie 5 ripost</h2>
+    <div class="ref">
+      <div class="panel">
+        <span class="lbl">Twój kod</span>
+        <div class="code" id="myCode">······</div>
+        <div class="row mt">
+          <button class="btn sm" type="button" id="copyRef">Kopiuj link polecający</button>
+        </div>
+        <p class="status" id="refLink"></p>
+      </div>
+      <form class="panel" id="refForm">
+        <label for="refCode">Masz kod od znajomego?</label>
+        <div class="row">
+          <input class="input mono" id="refCode" maxlength="8" autocomplete="off" placeholder="np. K7XQ2M">
+          <button class="btn sm" type="submit">Odbierz 5 ripost</button>
+        </div>
+        <p class="status" id="refStatus"></p>
+      </form>
+    </div>
+  </section>
+
+  <section class="more" aria-labelledby="faqH">
+    <h2 id="faqH">Pytania</h2>
+    <div class="faq">
+      <details><summary>Czy zapisujecie moje wiadomości?</summary><p>Nie. Treść wiadomości trafia do AI tylko po to, żeby napisać odpowiedź, i nie zapisujemy jej w naszej bazie. Szczegóły w polityce prywatności.</p></details>
+      <details><summary>Co jeśli riposta się nie uda?</summary><p>Jeśli AI nie odpowie albo wystąpi błąd, nie pobieramy opłaty. Jeśli odpowiedź po prostu Ci się nie podoba, zmień poziom pazura i spróbuj jeszcze raz.</p></details>
+      <details><summary>Czy ex się dowie, że to AI?</summary><p>Od nas nie. Ale jeśli nagle zaczniesz pisać jak poeta, może coś podejrzewać.</p></details>
+      <details><summary>Czy mogę odpisać szefowi „z pazurem”?</summary><p>Możesz. Riposta przy szefie i kliencie trzyma klasę nawet na najwyższym poziomie, więc pracę zachowasz. Raczej.</p></details>
+      <details><summary>Dlaczego minimalne doładowanie to 5 zł, a nie 50 groszy?</summary><p>Bo przy płatności na 50 groszy większość kwoty zjadłaby prowizja banku. Doładowujesz raz, a potem płacisz po 50 groszy z portfela.</p></details>
+    </div>
+  </section>
+
+  <footer>
+    <span>© Riposta. Odpowiedzi pisze AI (Claude). Sprawdź, zanim wyślesz.</span>
+    <nav><a href="regulamin.html">Regulamin</a><a href="prywatnosc.html">Prywatność</a><a href="#polecaj">Poleć</a></nav>
+  </footer>
+</div>
+
+<div class="modal" id="topup" hidden role="dialog" aria-modal="true" aria-labelledby="topupH">
+  <form class="sheet" id="topupForm">
+    <button class="btn ghost sm close" type="button" id="topupClose" aria-label="Zamknij">✕</button>
+    <h2 id="topupH">Doładuj portfel</h2>
+    <p class="status">Wybierz pakiet. Płacisz BLIK-iem, przelewem albo kartą.</p>
+    <div class="plans" id="modalPlans"></div>
+    <div class="field mt" id="emailField" hidden>
+      <label for="email">E-mail do potwierdzenia płatności</label>
+      <input class="input w100" id="email" type="email" autocomplete="email">
+    </div>
+    <label class="check"><input type="checkbox" id="cTerms"> <span>Akceptuję <a href="regulamin.html" target="_blank" rel="noopener">regulamin</a> i <a href="prywatnosc.html" target="_blank" rel="noopener">politykę prywatności</a>.</span></label>
+    <label class="check"><input type="checkbox" id="cWaive"> <span>Chcę, żeby usługa ruszyła od razu, i wiem, że po wykorzystaniu ripost tracę prawo do odstąpienia od umowy w tym zakresie.</span></label>
+    <div class="go">
+      <button class="btn coin-btn" id="payBtn" type="submit">Przejdź do płatności</button>
+    </div>
+    <p class="status" id="payStatus" role="status"></p>
+    <p class="demo-pill" id="demoPill" hidden>Tryb demo: płatność jest symulowana, nic nie płacisz.</p>
+  </form>
+</div>
+
+<div class="modal" id="shareModal" hidden role="dialog" aria-modal="true" aria-labelledby="shareH">
+  <div class="sheet">
+    <button class="btn ghost sm close" type="button" id="shareClose" aria-label="Zamknij">✕</button>
+    <h2 id="shareH">Pochwal się ripostą</h2>
+    <p class="status">Obrazek gotowy na TikToka, Insta albo do grupy. Imiona nie trafiają na obrazek.</p>
+    <img class="share-img" id="shareImg" alt="Obrazek z wiadomością i ripostą">
+    <div class="row">
+      <button class="btn" type="button" id="shareSave">Zapisz obrazek</button>
+      <button class="btn ghost" type="button" id="shareNative" hidden>Udostępnij</button>
+    </div>
+    <p class="status" id="shareStatus"></p>
+  </div>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<canvas class="fx" id="fx" aria-hidden="true"></canvas>
+
+<script src="app.js"></script>

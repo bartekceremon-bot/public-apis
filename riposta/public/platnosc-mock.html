@@ -1,0 +1,23 @@
+<title>Testowa płatność · Riposta</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Instrument+Sans:wght@400;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+
+<div class="wrap">
+  <header class="bar"><a class="logo" href="./"><i aria-hidden="true"></i>Riposta</a></header>
+  <form class="bank" id="bank">
+    <p class="demo-pill">Bank testowy · żadne pieniądze nie zostaną pobrane</p>
+    <h1>Płatność BLIK</h1>
+    <div class="amount mono" id="amount">…</div>
+    <p class="status" id="what">Ładuję szczegóły…</p>
+    <label for="blik">Kod BLIK z aplikacji banku</label>
+    <input class="blik" id="blik" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••">
+    <p class="status">Dowolne 6 cyfr zadziała. Kod 000000 symuluje odrzucenie.</p>
+    <div class="go"><button class="btn coin-btn" id="pay" type="submit">Zapłać</button></div>
+    <div id="wait" hidden><div class="spinner" aria-hidden="true"></div><p id="waitText">Potwierdź płatność w aplikacji banku…</p></div>
+    <p class="status" id="msg" role="status"></p>
+    <p><a href="./?platnosc=&amp;status=anulowano" id="cancel">Anuluj i wróć</a></p>
+  </form>
+</div>
+<script src="mock-pay.js"></script>

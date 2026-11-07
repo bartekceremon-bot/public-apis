@@ -1,0 +1,19 @@
+{
+  "name": "riposta",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Riposta: 50 groszy za idealną odpowiedź na każdą wiadomość.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "RIPOSTA_AI=mock PAYMENT_PROVIDER=mock node --watch server/server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
+    "zod": "^4.6.7"
+  }
+}

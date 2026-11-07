@@ -43,4 +43,4 @@ Wklejasz wiadomość, na którą nie wiesz, jak odpowiedzieć (szef, ex, randka 
 teściowa, klient, grupa na Messengerze), a Riposta daje 3 gotowe odpowiedzi:
 **Na luzie**, **Elegancko**, **Z pazurem**. Kopiujesz i wysyłasz.
 
-Szczegóły: [BIZNES.md](BIZNES.md). Prototyp: [index.html](index.html).
+Szczegóły: [BIZNES.md](BIZNES.md). Aplikacja: [README.md](README.md).
