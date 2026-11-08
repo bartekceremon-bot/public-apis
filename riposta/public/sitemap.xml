@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- UWAGA: riposta.example to domena zastępcza. Przed startem podmień ją na prawdziwą (też w robots.txt i og:image w index.html). -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://riposta.example/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://riposta.example/regulamin.html</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://riposta.example/prywatnosc.html</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+</urlset>

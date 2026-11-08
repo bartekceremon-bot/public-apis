@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /admin.html
+Disallow: /platnosc-mock.html
+Disallow: /api/
+
+# Podmień riposta.example na prawdziwą domenę przed startem.
+Sitemap: https://riposta.example/sitemap.xml

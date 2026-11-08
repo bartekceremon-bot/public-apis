@@ -1,0 +1,19 @@
+{
+  "name": "Riposta",
+  "short_name": "Riposta",
+  "description": "Nie wiesz, co odpisać? 50 groszy i masz idealną odpowiedź.",
+  "lang": "pl",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#2E46F0",
+  "background_color": "#F2F4F8",
+  "categories": ["social", "lifestyle", "utilities"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,77 @@
+<!doctype html><html lang="pl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#2E46F0">
+<title>Panel właściciela · Riposta</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+
+<div class="wrap admin">
+  <header class="bar">
+    <a class="logo" href="./"><i aria-hidden="true"></i>Riposta</a>
+    <div class="row">
+      <span class="adm-tag">Panel właściciela</span>
+      <button class="btn ghost sm" type="button" id="logout" hidden>Wyloguj</button>
+    </div>
+  </header>
+
+  <form class="panel adm-login" id="login" novalidate>
+    <h1>Kasa, liczby i dramy</h1>
+    <p class="status">Wpisz token z <span class="mono">ADMIN_TOKEN</span>. Zostaje tylko w tej karcie przeglądarki (sessionStorage) i znika po jej zamknięciu.</p>
+    <label for="token">Token</label>
+    <div class="row">
+      <input class="input mono" id="token" type="password" autocomplete="current-password" spellcheck="false" placeholder="••••••••">
+      <button class="btn" type="submit" id="loginBtn">Wejdź</button>
+    </div>
+    <p class="status" id="loginStatus" role="status"></p>
+  </form>
+
+  <main id="dash" hidden aria-busy="false">
+    <div class="adm-head">
+      <h1>Ostatnie 30 dni</h1>
+      <div class="row">
+        <span class="status" id="updated" role="status"></span>
+        <button class="btn ghost sm" type="button" id="refresh">↻ Odśwież</button>
+      </div>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="charts">
+      <section class="panel chart-card wide" aria-labelledby="cUseH">
+        <h2 id="cUseH">Riposty i Dekoder dziennie</h2>
+        <p class="chart-sub">Wszystkie użycia, płatne i darmowe.</p>
+        <div class="legend" id="useLegend"></div>
+        <div class="chart" id="cUse"></div>
+      </section>
+      <section class="panel chart-card wide" aria-labelledby="cRevH">
+        <h2 id="cRevH">Przychód dziennie (zł)</h2>
+        <p class="chart-sub">Opłacone doładowania portfela.</p>
+        <div class="chart" id="cRev"></div>
+      </section>
+      <section class="panel chart-card" aria-labelledby="cSpiceH">
+        <h2 id="cSpiceH">Poziom pazura</h2>
+        <p class="chart-sub">Ile ripost na każdym poziomie.</p>
+        <div class="chart" id="cSpice"></div>
+      </section>
+      <section class="panel chart-card" aria-labelledby="cWhoH">
+        <h2 id="cWhoH">Od kogo są wiadomości</h2>
+        <p class="chart-sub">Riposty i Dekoder razem.</p>
+        <div class="chart" id="cWho"></div>
+      </section>
+    </div>
+
+    <details class="panel adm-table">
+      <summary>Tabela dzienna (te same dane co na wykresach)</summary>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Dzień</th><th scope="col">Riposty</th><th scope="col">Dekoder</th><th scope="col">Nowi</th><th scope="col">Przychód</th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </details>
+    <p class="status">Statystyki są zagregowane. Treści wiadomości nie zapisujemy, więc nie ma ich też tutaj.</p>
+  </main>
+</div>
+
+<div class="viz-tip" id="tip" hidden></div>
+<script src="admin.js"></script>
