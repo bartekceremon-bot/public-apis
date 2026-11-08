@@ -170,8 +170,8 @@ export function createApp({ store, ai, payments, cfg = config, publicDir = PUBLI
     let user = rid && store.getUser(rid);
     if (!user) {
       // Limit darmowych na IP i dzień: kolejne portfele działają, ale tylko z płatnym doładowaniem.
-      const free = cfg.freeOnStart > 0 && grantFree(clientIp(req)) ? cfg.freeOnStart : 0;
-      user = store.createUser(free);
+      const capped = cfg.freeOnStart > 0 && !grantFree(clientIp(req));
+      user = store.createUser(capped ? 0 : cfg.freeOnStart, { capped });
       setRidCookie(res, user.id);
     }
     return user;
@@ -369,6 +369,8 @@ export function createApp({ store, ai, payments, cfg = config, publicDir = PUBLI
       const used = user.stats.ripostes > 0 || (user.stats.dekoder || 0) > 0 || (user.stats.spentGr || 0) > 0
         || user.balanceGr > 0 || store.hasPayments(user.id);
       if (used) return fail(res, 409, "not_new", "Kod działa tylko dla nowych osób.");
+      // Portfele ponad limit darmowych nie odbierają bonusu (inaczej dałoby się "farmić" polecenia).
+      if (user.capped) return fail(res, 409, "not_eligible", "Bonus z polecenia jest już wykorzystany z tej sieci. Doładuj portfel, żeby ripostować dalej.");
       store.updateUser(user.id, (u) => { u.referredBy = ownerId; u.freeLeft += cfg.referralBonus; });
       store.updateUser(ownerId, (u) => { u.freeLeft += cfg.referralBonus; });
       return send(res, 200, { me: publicUser(store.getUser(user.id)), bonus: cfg.referralBonus });

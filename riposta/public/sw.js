@@ -1,10 +1,10 @@
 /* Riposta: service worker.
- * - pliki strony (powłoka): najpierw z pamięci podręcznej, w tle odświeżane z sieci,
- * - nawigacja (HTML): najpierw sieć, bez sieci kopia z pamięci,
- * - /api/*: zawsze tylko sieć (portfel i płatności nigdy z pamięci).
+ * - pliki strony z tego samego źródła (HTML, JS, CSS, manifest, ikony): najpierw sieć, kopia trafia do pamięci;
+ *   bez sieci odpowiedź z pamięci podręcznej (dokładne dopasowanie adresu, bez ignoreSearch),
+ * - /api/*, panel właściciela i symulator płatności: zawsze tylko sieć (portfel i płatności nigdy z pamięci).
  * Zmiana VERSION = nowa pamięć podręczna, stare są usuwane przy aktywacji.
  */
-const VERSION = "riposta-v2-1";
+const VERSION = "riposta-v3-1";
 const SHELL = [
   "./", "index.html", "styles.css", "app.js", "favicon.svg", "manifest.webmanifest",
   "icon-192.png", "icon-512.png", "icon-maskable-512.png", "regulamin.html", "prywatnosc.html",
@@ -30,26 +30,19 @@ self.addEventListener("fetch", (e) => {
   if (url.origin !== self.location.origin) return; // np. Google Fonts: przeglądarka sama
   if (NEVER.test(url.pathname)) return;            // tylko sieć
 
-  if (req.mode === "navigate") {
-    e.respondWith(
-      fetch(req)
-        .then((res) => {
-          if (res.ok && url.pathname.endsWith("/")) { const copy = res.clone(); caches.open(VERSION).then((c) => c.put("./", copy)); }
-          return res;
-        })
-        .catch(() => caches.match(req, { ignoreSearch: true }).then((r) => r || caches.match("./")))
-    );
-    return;
-  }
-
+  // Najpierw sieć: nowa wersja strony jest widoczna od razu; kopia w pamięci tylko na wypadek braku sieci.
   e.respondWith(
-    caches.match(req, { ignoreSearch: true }).then((hit) => {
-      const net = fetch(req).then((res) => {
-        if (res.ok && res.type === "basic") { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); }
+    fetch(req)
+      .then((res) => {
+        if (res.ok && res.type === "basic") {
+          const copy = res.clone();
+          e.waitUntil(caches.open(VERSION).then((c) => c.put(req, copy)).catch(() => {}));
+        }
         return res;
-      });
-      if (hit) { e.waitUntil(net.catch(() => {})); return hit; }
-      return net;
-    })
+      })
+      .catch(() =>
+        caches.match(req).then((hit) => hit || (req.mode === "navigate" ? caches.match("./") : undefined))
+          .then((hit) => hit || Response.error())
+      )
   );
 });

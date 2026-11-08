@@ -63,7 +63,7 @@
     who: "Ex", spice: 3, me: null, cfg: null, busy: false, ctl: null, quipTimer: null,
     pkg: "pakiet", lastShare: null,
     tab: "riposta", dWho: "Randka", features: { images: false, dekoder: false, walletCode: false },
-    maxImageBytes: 1572864, dekoderPriceGr: 50,
+    maxImageBytes: 1572864, priceGr: 50, dekoderPriceGr: 50,
   };
 
   // ---------------------------------------------------------------- backend: serwer
@@ -331,7 +331,7 @@ Po polsku, z humorem, bez obrażania i bez diagnoz medycznych. Odpowiedz wyłąc
       feed.replaceChildren();
       feed.append(bubbleIn(d.inText, d.who));
       await sleep(1400);
-      const sys = document.createElement("div"); sys.className = "sys"; sys.textContent = "Riposta · 0,50 zł"; feed.append(sys);
+      const sys = document.createElement("div"); sys.className = "sys"; sys.textContent = "Riposta · " + fmt(state.priceGr); feed.append(sys);
       const dots = typingDots(); feed.append(dots);
       $("demoSt").textContent = "Ty piszesz…";
       await sleep(1300);
@@ -357,8 +357,15 @@ Po polsku, z humorem, bez obrażania i bez diagnoz medycznych. Odpowiedz wyłąc
     const d = document.createElement("div"); d.className = "incoming";
     const s = document.createElement("small"); s.textContent = from;
     d.append(s);
-    if (img && img.url) {
-      const im = document.createElement("img"); im.className = "inshot"; im.src = img.url; im.alt = "Zrzut ekranu rozmowy";
+    if (img && (img.blob || img.url)) {
+      // własny adres obiektu dla dymka: zwalniamy go po wczytaniu, niezależnie od miniatury w formularzu
+      const im = document.createElement("img"); im.className = "inshot"; im.alt = "Zrzut ekranu rozmowy";
+      if (img.blob) {
+        const u = URL.createObjectURL(img.blob);
+        const free = () => URL.revokeObjectURL(u);
+        im.addEventListener("load", free, { once: true }); im.addEventListener("error", free, { once: true });
+        im.src = u;
+      } else im.src = img.url;
       d.append(im);
     }
     if (text) d.append(document.createTextNode(text));
@@ -446,52 +453,71 @@ Po polsku, z humorem, bez obrażania i bez diagnoz medycznych. Odpowiedz wyłąc
   msg.addEventListener("input", onMsg); onMsg();
 
   function status(t, err) { $("status").textContent = t; $("status").className = "status" + (err ? " err" : ""); }
-  function startQuips(el) {
-    const q = [...QUIPS].sort(() => Math.random() - 0.5);
+  function startQuips(el, list = QUIPS) {
+    const q = [...list].sort(() => Math.random() - 0.5);
     let i = 0; el.textContent = q[0];
     state.quipTimer = setInterval(() => { el.textContent = q[++i % q.length]; }, 1700);
   }
+  const priceOf = (mode) => (mode === "dekoder" ? state.dekoderPriceGr : state.priceGr);
+  // stać nas? najpierw darmowe, potem portfel (cena zależy od trybu)
+  const canAfford = (priceGr) => !state.me || state.me.freeLeft > 0 || state.me.balanceGr >= priceGr;
 
-  $("form").addEventListener("submit", async (e) => {
+  // Wspólne wysłanie riposty i Dekodera: stan zajętości i przerwania, kropki + teksty w trakcie,
+  // pobranie opłaty (moneta, toast, status), błędy i sprzątanie. Różnią się tylko wywołaniem backendu i renderem.
+  async function submitAsk(o) {
+    if (state.busy) return;
+    if (!canAfford(o.priceGr)) { o.statusFn(o.brokeText, true); shake($("wallet")); openTopup(); return; }
+    state.busy = true; state.ctl = new AbortController();
+    o.goBtn.disabled = true; o.stopBtn.hidden = false;
+    const t = o.threadEl;
+    t.replaceChildren(o.bubble());
+    t.setAttribute("aria-busy", "true");
+    const typing = typingDots(); const quip = document.createElement("div"); quip.className = "quip"; typing.append(quip);
+    t.append(typing); startQuips(quip, o.quips);
+    o.statusFn(o.busyText);
+    if (innerWidth < 860) t.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+    try {
+      const res = await o.call(state.ctl.signal);
+      typing.remove();
+      o.render(res);
+      await charged(res, o.goBtn, o.statusFn, o.priceGr);
+      if (o.after) o.after(res);
+    } catch (err) {
+      typing.remove();
+      if (err && (err.code === "cancelled" || err.name === "AbortError")) o.statusFn("Zatrzymano. Nic nie pobrano.");
+      else {
+        o.statusFn((err && err.message) || "Coś poszło nie tak. Nic nie pobrano.", true);
+        shake(o.form);
+        if (err && err.code === "no_funds") openTopup();
+      }
+    } finally {
+      clearInterval(state.quipTimer);
+      t.removeAttribute("aria-busy");
+      state.busy = false; state.ctl = null;
+      o.goBtn.disabled = false; o.stopBtn.hidden = true;
+    }
+  }
+
+  $("form").addEventListener("submit", (e) => {
     e.preventDefault();
     if (state.busy) return;
     const message = msg.value.trim();
     const img = rShot.get();
     if (!message && !img) { status(state.features.images ? "Wklej wiadomość albo wrzuć screena rozmowy." : "Wklej wiadomość, na którą chcesz odpisać.", true); shake(msg); return; }
-    if (state.me && state.me.ripostesLeft < 1) { status("Portfel pusty. Doładuj i ripostuj dalej!", true); shake($("wallet")); openTopup(); return; }
-
-    state.busy = true; state.ctl = new AbortController();
-    $("goBtn").disabled = true; $("stopBtn").hidden = false;
-    thread.replaceChildren(bubbleIn(message, state.who, img));
-    thread.setAttribute("aria-busy", "true");
-    const typing = typingDots(); const quip = document.createElement("div"); quip.className = "quip"; typing.append(quip);
-    thread.append(typing); startQuips(quip);
-    status("Piszę 3 odpowiedzi…");
-    if (innerWidth < 860) thread.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
-
-    try {
-      const input = { who: state.who, goal: $("goal").value, message, spice: state.spice };
-      if (img) input.image = img;
-      const res = await backend.generate(input, state.ctl.signal);
-      typing.remove();
-      res.replies.forEach((r, i) => thread.append(replyCard(r, i, message || "📷 (zrzut ekranu)")));
-      await charged(res, $("goBtn"), status);
-      addHistory({ mode: "riposta", who: state.who, message, img: !!img, replies: res.replies });
-      checkAchievements(res.me);
-    } catch (err) {
-      typing.remove();
-      if (err && (err.code === "cancelled" || err.name === "AbortError")) status("Zatrzymano. Nic nie pobrano.");
-      else {
-        status((err && err.message) || "Coś poszło nie tak. Nic nie pobrano.", true);
-        shake($("form"));
-        if (err && err.code === "no_funds") openTopup();
-      }
-    } finally {
-      clearInterval(state.quipTimer);
-      thread.removeAttribute("aria-busy");
-      state.busy = false; state.ctl = null;
-      $("goBtn").disabled = false; $("stopBtn").hidden = true;
-    }
+    const who = state.who;
+    const input = { who, goal: $("goal").value, message, spice: state.spice };
+    if (img) input.image = img;
+    submitAsk({
+      form: $("form"), goBtn: $("goBtn"), stopBtn: $("stopBtn"), threadEl: thread, statusFn: status,
+      priceGr: priceOf("riposta"), brokeText: "Portfel pusty. Doładuj i ripostuj dalej!",
+      bubble: () => bubbleIn(message, who, img), quips: QUIPS, busyText: "Piszę 3 odpowiedzi…",
+      call: (signal) => backend.generate(input, signal),
+      render: (res) => res.replies.forEach((r, i) => thread.append(replyCard(r, i, message || "📷 (zrzut ekranu)"))),
+      after: (res) => {
+        addHistory({ mode: "riposta", who, message, img: !!img, replies: res.replies });
+        checkAchievements(res.me);
+      },
+    });
   });
   $("stopBtn").onclick = () => state.ctl && state.ctl.abort();
 
@@ -507,15 +533,15 @@ Po polsku, z humorem, bez obrażania i bez diagnoz medycznych. Odpowiedz wyłąc
   }
 
   // wspólne po udanej płatności: moneta leci do portfela, licznik, toast, linijka statusu
-  async function charged(res, fromBtn, statusFn) {
+  async function charged(res, fromBtn, statusFn, priceGr) {
     if (res.paidWith === "wallet") {
-      await flyCoin(fromBtn, $("wallet").querySelector(".mini-coin"));
-      toast("🪙", "−0,50 zł z portfela", `Zostało ${res.me.ripostesLeft} ${plural(res.me.ripostesLeft, "riposta", "riposty", "ripost")}. Dobrze wydane.`, 2600);
+      await flyCoin(fromBtn, $("wallet").querySelector(".mini-coin"), String(priceGr));
+      toast("🪙", `−${fmt(priceGr)} z portfela`, `Zostało ${res.me.ripostesLeft} ${plural(res.me.ripostesLeft, "riposta", "riposty", "ripost")}. Dobrze wydane.`, 2600);
     }
     renderMe(res.me, true);
     statusFn(res.paidWith === "free"
       ? `Gratis! Zostało ${res.me.freeLeft} ${plural(res.me.freeLeft, "darmowa", "darmowe", "darmowych")}.`
-      : `Pobrano 0,50 zł. W portfelu: ${fmt(res.me.balanceGr)}.`);
+      : `Pobrano ${fmt(priceGr)}. W portfelu: ${fmt(res.me.balanceGr)}.`);
   }
 
   // ---------------------------------------------------------------- zrzut ekranu
@@ -555,7 +581,10 @@ Po polsku, z humorem, bez obrażania i bez diagnoz medycznych. Odpowiedz wyłąc
     const el = (n) => $(prefix + n);
     let cur = null;
     const placeholder = textarea.placeholder;
+    // Każda miniatura ma własny adres obiektu (blob:), zwalniany przy usunięciu, podmianie i czyszczeniu.
+    function release() { if (cur && cur.url) URL.revokeObjectURL(cur.url); }
     function set(img) {
+      if (cur !== img) release();
       cur = img;
       el("Img").src = img.url;
       el("Info").textContent = `${img.w}×${img.h} px · ${Math.max(1, Math.round(img.bytes / 1024))} KB · wiadomość teraz opcjonalna`;
@@ -564,6 +593,7 @@ Po polsku, z humorem, bez obrażania i bez diagnoz medycznych. Odpowiedz wyłąc
       textarea.placeholder = "Opcjonalnie: dopisz kontekst (np. „to po pierwszej randce”)";
     }
     function clear() {
+      release();
       cur = null;
       el("Thumb").hidden = true; el("Img").removeAttribute("src");
       el("Pick").textContent = "📷 Wrzuć screena rozmowy";
@@ -592,7 +622,12 @@ Po polsku, z humorem, bez obrażania i bez diagnoz medycznych. Odpowiedz wyłąc
       e.preventDefault();
       attach(e.dataTransfer.files[0]);
     });
-    return { get: () => cur, set, clear, attach };
+    // Przejęcie zrzutu z innej zakładki: kopia z własnym adresem, żeby zwolnienie tamtej miniatury nie psuło tej.
+    function adopt(img) {
+      if (!img || !img.blob) { if (img) set(img); return; }
+      set({ ...img, url: URL.createObjectURL(img.blob) });
+    }
+    return { get: () => cur, set, clear, attach, adopt };
   }
   const rShot = makeShot("r", $("rDrop"), msg, status);
   // wklejanie (Ctrl+V, długie przytrzymanie → Wklej): obrazek trafia do aktywnej zakładki
@@ -739,7 +774,7 @@ Po polsku, z humorem, bez obrażania i bez diagnoz medycznych. Odpowiedz wyłąc
         switchTab("riposta");
         msg.value = ctx.message || ""; onMsg();
         selectWho(whoBox, "who", ctx.who);
-        if (ctx.img) rShot.set(ctx.img); else rShot.clear();
+        if (ctx.img) rShot.adopt(ctx.img); else rShot.clear();
         status("Wiadomość przeniesiona z Dekodera. Ustaw pazur i lecimy!");
         goToForm(msg);
       };
@@ -758,46 +793,25 @@ Po polsku, z humorem, bez obrażania i bez diagnoz medycznych. Odpowiedz wyłąc
       rada: "Nie pisz „co się stało?”. Zapytaj konkretnie i lekko, np. o plan na weekend.",
     }, null));
   }
-  $("dForm").addEventListener("submit", async (e) => {
+  $("dForm").addEventListener("submit", (e) => {
     e.preventDefault();
     if (state.busy) return;
     const message = dMsg.value.trim(), img = dShot.get(), who = state.dWho;
     if (!message && !img) { dStatus(state.features.images ? "Wklej wiadomość albo wrzuć screena do rozszyfrowania." : "Wklej wiadomość do rozszyfrowania.", true); shake(dMsg); return; }
-    if (state.me && state.me.ripostesLeft < 1) { dStatus("Portfel pusty. Doładuj i dekoduj dalej!", true); shake($("wallet")); openTopup(); return; }
-    state.busy = true; state.ctl = new AbortController();
-    $("dGoBtn").disabled = true; $("dStopBtn").hidden = false;
+    const input = { who, message };
+    if (img) input.image = img;
     const dt = $("dThread");
-    dt.replaceChildren(bubbleIn(message, who, img));
-    dt.setAttribute("aria-busy", "true");
-    const typing = typingDots(); const quip = document.createElement("div"); quip.className = "quip"; typing.append(quip);
-    dt.append(typing);
-    const q = [...D_QUIPS].sort(() => Math.random() - 0.5); let qi = 0; quip.textContent = q[0];
-    state.quipTimer = setInterval(() => { quip.textContent = q[++qi % q.length]; }, 1700);
-    dStatus("Rozszyfrowuję…");
-    if (innerWidth < 860) dt.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
-    try {
-      const input = { who, message };
-      if (img) input.image = img;
-      const res = await backend.dekoder(input, state.ctl.signal);
-      typing.remove();
-      dt.append(analysisCard(res.analysis || {}, { message, who, img }));
-      await charged(res, $("dGoBtn"), dStatus);
-      addHistory({ mode: "dekoder", who, message, img: !!img, analysis: res.analysis });
-      if (Number(res.analysis && res.analysis.poziomDramy) >= 9) setTimeout(() => toast("🍿", "Drama 9+/10", "Zrób popcorn. Albo herbatę z melisą."), 1400);
-    } catch (err) {
-      typing.remove();
-      if (err && (err.code === "cancelled" || err.name === "AbortError")) dStatus("Zatrzymano. Nic nie pobrano.");
-      else {
-        dStatus((err && err.message) || "Coś poszło nie tak. Nic nie pobrano.", true);
-        shake($("dForm"));
-        if (err && err.code === "no_funds") openTopup();
-      }
-    } finally {
-      clearInterval(state.quipTimer);
-      dt.removeAttribute("aria-busy");
-      state.busy = false; state.ctl = null;
-      $("dGoBtn").disabled = false; $("dStopBtn").hidden = true;
-    }
+    submitAsk({
+      form: $("dForm"), goBtn: $("dGoBtn"), stopBtn: $("dStopBtn"), threadEl: dt, statusFn: dStatus,
+      priceGr: priceOf("dekoder"), brokeText: "Portfel pusty. Doładuj i dekoduj dalej!",
+      bubble: () => bubbleIn(message, who, img), quips: D_QUIPS, busyText: "Rozszyfrowuję…",
+      call: (signal) => backend.dekoder(input, signal),
+      render: (res) => dt.append(analysisCard(res.analysis || {}, { message, who, img })),
+      after: (res) => {
+        addHistory({ mode: "dekoder", who, message, img: !!img, analysis: res.analysis });
+        if (Number(res.analysis && res.analysis.poziomDramy) >= 9) setTimeout(() => toast("🍿", "Drama 9+/10", "Zrób popcorn. Albo herbatę z melisą."), 1400);
+      },
+    });
   });
   $("dStopBtn").onclick = () => state.ctl && state.ctl.abort();
 
@@ -879,7 +893,7 @@ Po polsku, z humorem, bez obrażania i bez diagnoz medycznych. Odpowiedz wyłąc
     fillWallet();
     const can = !inArtifact && state.features.walletCode;
     $("wCodeBox").hidden = !can; $("wDemo").hidden = can;
-    $("wCodeVal").hidden = true; $("wShow").hidden = false; $("wConfirm").hidden = true; wStatus("");
+    $("wCodeVal").hidden = true; $("wShow").hidden = false; $("wConfirm").hidden = true; $("wNewNote").hidden = true; wStatus("");
     $("walletModal").hidden = false;
     setTimeout(() => $("walletClose").focus(), 50);
   }
@@ -896,7 +910,7 @@ Po polsku, z humorem, bez obrażania i bez diagnoz medycznych. Odpowiedz wyłąc
     $("wShow").disabled = true;
     try {
       const r = await backend.walletCode();
-      $("wCode").textContent = r.code; $("wCodeVal").hidden = false; $("wShow").hidden = true;
+      $("wCode").textContent = r.code; $("wCodeVal").hidden = false; $("wShow").hidden = true; $("wNewNote").hidden = true;
       wStatus("Wpisz ten kod na nowym telefonie: Mój portfel → „Mam kod z innego telefonu”.");
     } catch (err) { wStatus((err && err.message) || "Nie udało się pobrać kodu.", true); }
     finally { $("wShow").disabled = false; }
@@ -915,7 +929,7 @@ Po polsku, z humorem, bez obrażania i bez diagnoz medycznych. Odpowiedz wyłąc
     $("wRotateYes").disabled = true;
     try {
       const r = await backend.rotateCode();
-      $("wCode").textContent = r.code; $("wConfirm").hidden = true;
+      $("wCode").textContent = r.code; $("wConfirm").hidden = true; $("wNewNote").hidden = true;
       wStatus("Nowy kod gotowy. Stary już nie działa.");
       toast("🔑", "Nowy kod przenoszenia", "Stary kod przestał działać.");
       $("wCopy").focus();
@@ -933,8 +947,14 @@ Po polsku, z humorem, bez obrażania i bez diagnoz medycznych. Odpowiedz wyłąc
       coinRain(Math.min(24, Math.max(6, r.me.ripostesLeft || 0)));
       setTimeout(() => renderMe(r.me, true), reduced ? 0 : 900);
       state.me = r.me; fillWallet();
+      // serwer od razu wymienił użyty kod: pokazujemy nowy
+      if (r.newCode) {
+        $("wCode").textContent = r.newCode; $("wCodeVal").hidden = false; $("wShow").hidden = true; $("wConfirm").hidden = true;
+        $("wNewNote").hidden = false;
+      }
       wStatus("Portfel przeniesiony! Witaj z powrotem 👋");
       toast("📲", "Portfel przeniesiony", `Masz ${fmt(r.me.balanceGr)} i ${r.me.ripostesLeft} ${plural(r.me.ripostesLeft, "ripostę", "riposty", "ripost")}.`);
+      if (r.mergedGr > 0) toast("🪙", `Przenieśliśmy też ${fmt(r.mergedGr)} z tego telefonu`, "Nic z tego portfela nie przepadło.");
     } catch (err) {
       wStatus((err && err.message) || "Nie udało się przenieść portfela.", true);
       shake($("wRestore"));
@@ -946,8 +966,9 @@ Po polsku, z humorem, bez obrażania i bez diagnoz medycznych. Odpowiedz wyłąc
     const f = cfg.features || {};
     state.features = { images: !!f.images, dekoder: !!f.dekoder, walletCode: !!f.walletCode };
     if (cfg.maxImageBytes) state.maxImageBytes = cfg.maxImageBytes;
-    if (cfg.dekoderPriceGr) state.dekoderPriceGr = cfg.dekoderPriceGr;
-    if (cfg.priceGr) $("goBtn").textContent = "Daj mi ripostę · " + fmt(cfg.priceGr);
+    if (cfg.priceGr) state.priceGr = cfg.priceGr;
+    state.dekoderPriceGr = cfg.dekoderPriceGr || state.priceGr; // brak osobnej ceny Dekodera: jak riposta
+    $("goBtn").textContent = "Daj mi ripostę · " + fmt(state.priceGr);
     $("dGoBtn").textContent = "Rozszyfruj · " + fmt(state.dekoderPriceGr);
     $("tabDekoder").hidden = !state.features.dekoder;
     if (inArtifact) {

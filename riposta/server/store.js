@@ -109,7 +109,7 @@ export function createStore(file) {
     getUser(id) {
       return (typeof id === "string" && Object.hasOwn(db.users, id) && db.users[id]) || null;
     },
-    createUser(freeOnStart) {
+    createUser(freeOnStart, { capped = false } = {}) {
       const id = crypto.randomUUID();
       const referralCode = newReferralCode();
       db.users[id] = {
@@ -120,6 +120,7 @@ export function createStore(file) {
         referralCode,
         referredBy: null,
         walletCode: null,
+        capped, // portfel założony ponad dzienny limit darmowych na IP
         stats: { ripostes: 0, dekoder: 0, spentGr: 0, maxSpice: 0 },
       };
       db.referralCodes[referralCode] = id;

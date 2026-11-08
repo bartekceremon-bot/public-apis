@@ -342,6 +342,11 @@ test("darmowe riposty: max N nowych portfeli z darmowymi na IP dziennie, kolejne
   const me = (await capped("/api/me")).json;
   assert.equal(me.freeLeft, 0);
   assert.equal(me.ripostesLeft, 0);
+  // Portfel ponad limit nie może "dofarmić" darmowych przez kod polecający.
+  const ownerCode = (await client(base, { ip: "10.55.0.9" })("/api/me")).json.referralCode;
+  const ref = await capped("/api/referral", { code: ownerCode });
+  assert.equal(ref.status, 409);
+  assert.equal(ref.json.error, "not_eligible");
   // Portfel działa z płatnym doładowaniem.
   assert.equal((await capped("/api/riposta", { who: "Ex", message: "hej" })).json.error, "no_funds");
   const t = await capped("/api/topup", { packageId: "maly", acceptTerms: true, waiveWithdrawal: true });
