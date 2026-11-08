@@ -28,6 +28,7 @@ export const config = {
 
   // Cennik (w groszach). Jedna riposta = 50 gr.
   priceGr: 50,
+  dekoderPriceGr: 50, // Dekoder ("Co on/ona miał(a) na myśli?")
   freeOnStart: 3,
   referralBonus: 5, // darmowe riposty dla obu stron
   packages: [
@@ -59,6 +60,15 @@ export const config = {
     },
   },
 
+  // Zrzuty ekranu: max rozmiar po zdekodowaniu (1,5 MB).
+  maxImageBytes: 1572864,
+
   rateLimitPerMinute: Number(env.RATE_LIMIT_PER_MINUTE || 20),
+  walletRestorePerMinute: 5, // próby przywrócenia portfela kodem na IP na minutę
+  // Za reverse proxy (Docker/nginx/Caddy): ustaw TRUST_PROXY=true, żeby IP brać z X-Forwarded-For.
+  trustProxy: env.TRUST_PROXY === "true",
+
+  // Panel właściciela: GET /api/admin/stats z nagłówkiem Authorization: Bearer <ADMIN_TOKEN>. Puste = panel wyłączony.
+  adminToken: env.ADMIN_TOKEN || "",
   isProd: env.NODE_ENV === "production",
 };

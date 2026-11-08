@@ -14,7 +14,7 @@ const cfg = { ...config, publicUrl: "http://localhost", rateLimitPerMinute: 1000
 
 before(async () => {
   store = createStore(null);
-  const mock = createAi({ mode: "mock" });
+  const mock = createAi({ mode: "mock", mockDelayMs: 0 });
   const ai = { mode: "mock", generate: async (i) => { if (failNext) { failNext = false; throw new AiError("busy", "x"); } return mock.generate(i); } };
   server = http.createServer(createApp({ store, ai, payments: mockProvider(), cfg }));
   await new Promise((r) => server.listen(0, r));

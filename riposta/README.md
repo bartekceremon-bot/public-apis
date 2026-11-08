@@ -103,8 +103,28 @@ riposta/
   test/              # testy API (node --test)
 ```
 
-API: `GET /api/config`, `GET /api/me`, `POST /api/riposta`, `POST /api/topup`, `GET /api/payments/:id`,
-`POST /api/payments/:provider/webhook`, `POST /api/referral`, `GET /healthz`.
+API (pełny kontrakt: [docs/API.md](docs/API.md)):
+
+| Metoda i adres | Co robi |
+|---|---|
+| `GET /api/config` | cennik, pakiety, nadawcy, `features`, `dekoderPriceGr`, `maxImageBytes` |
+| `GET /api/me` | portfel i statystyki użytkownika (ciasteczko `rid`) |
+| `POST /api/riposta` | 3 riposty; `message` albo zrzut ekranu `image: { mediaType, data }` (JPG/PNG/WebP, do 1,5 MB) |
+| `POST /api/dekoder` | „Co on/ona miał(a) na myśli?”: analiza wiadomości, cena i rozliczenie jak riposta |
+| `GET /api/wallet/code` | tajny kod portfela `RIP-XXXX-XXXX-XXXX` (do przeniesienia na inny telefon) |
+| `POST /api/wallet/code/rotate` | nowy kod, stary przestaje działać |
+| `POST /api/wallet/restore` | przywrócenie portfela kodem (limit 5 prób/min na IP) |
+| `GET /api/admin/stats` | panel właściciela, `Authorization: Bearer <ADMIN_TOKEN>`; bez tokenu w env: 404 |
+| `POST /api/topup`, `GET /api/payments/:id`, `POST /api/payments/:provider/webhook` | doładowania |
+| `POST /api/referral` | kod polecający |
+| `GET /healthz` | healthcheck |
+
+Limit body: 2,5 MB dla `/api/riposta` i `/api/dekoder` (zrzuty ekranu), 16 KB dla pozostałych tras.
+Zrzuty ekranu idą prosto do Claude i nie są nigdzie zapisywane ani logowane (tak samo jak treść wiadomości).
+Statystyki w panelu są wyłącznie zagregowanymi licznikami (dzień, poziom pazura, nadawca).
+
+Zmienne środowiskowe poza AI i płatnościami: `ADMIN_TOKEN` (panel właściciela), `TRUST_PROXY=true`
+(za reverse proxy: IP klienta z `X-Forwarded-For`, ważne dla limitów), `RATE_LIMIT_PER_MINUTE`, `DATA_FILE`.
 
 Ten sam `public/` działa też jako podgląd na claude.ai: `app.js` sam wykrywa, że jest w artefakcie,
 i wtedy używa AI z konta Claude oraz symulowanego portfela w przeglądarce.
