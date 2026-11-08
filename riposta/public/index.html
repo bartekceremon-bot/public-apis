@@ -1,9 +1,24 @@
 <title>Riposta</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Nie wiesz, co odpisać? 50 groszy i masz idealną odpowiedź na każdą wiadomość.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="pl_PL">
+<meta property="og:site_name" content="Riposta">
 <meta property="og:title" content="Riposta: 50 groszy za idealną odpowiedź">
 <meta property="og:description" content="Wklej wiadomość od ex, szefa albo teściowej. Dostajesz 3 gotowe odpowiedzi.">
+<!-- og:image musi mieć pełny adres: podmień riposta.example na prawdziwą domenę przed startem -->
+<meta property="og:image" content="https://riposta.example/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Riposta: nie wiesz, co odpisać? 50 groszy.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Riposta: 50 groszy za idealną odpowiedź">
+<meta name="twitter:description" content="Wklej wiadomość od ex, szefa albo teściowej. Dostajesz 3 gotowe odpowiedzi.">
+<meta name="twitter:image" content="https://riposta.example/og.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-title" content="Riposta">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
 <link rel="stylesheet" href="styles.css">
@@ -11,10 +26,13 @@
 <div class="wrap">
   <header class="bar">
     <a class="logo" href="./"><i aria-hidden="true"></i>Riposta</a>
-    <div class="wallet" id="wallet" aria-live="polite">
-      <span class="mini-coin" aria-hidden="true">50</span>
-      <span class="amt mono"><span id="bal">0,00 zł</span><small id="left">3 riposty gratis</small></span>
-      <button class="btn sm coin-btn" id="topupOpen" type="button">Doładuj</button>
+    <div class="bar-r">
+      <button class="btn ghost sm" id="installBtn" type="button" hidden>📲 Dodaj do ekranu głównego</button>
+      <div class="wallet" id="wallet">
+        <span class="mini-coin" aria-hidden="true">50</span>
+        <button class="amt mono" id="walletOpen" type="button" aria-haspopup="dialog" title="Mój portfel"><span id="bal" aria-live="polite">0,00 zł</span><small id="left">3 riposty gratis</small></button>
+        <button class="btn sm coin-btn" id="topupOpen" type="button">Doładuj</button>
+      </div>
     </div>
   </header>
 
@@ -33,55 +51,114 @@
     </div>
   </div>
 
-  <div class="bench" id="apka">
-    <form class="panel" id="form" novalidate>
-      <h2>Na co nie wiesz, jak odpisać?</h2>
-      <span class="lbl" id="whoLbl">Od kogo?</span>
-      <div class="who" role="group" aria-labelledby="whoLbl" id="who"></div>
-      <div class="field">
-        <label for="msg">Treść wiadomości</label>
-        <textarea id="msg" maxlength="1500" placeholder="Wklej tu wiadomość…">Hej, dawno się nie odzywałeś… Wszystko ok? Bo ja ostatnio dużo o nas myślałam.</textarea>
-        <div class="count" id="count">0 / 1500</div>
-      </div>
-      <div class="field">
-        <label for="goal">Czego chcesz?</label>
-        <select id="goal" class="select">
-          <option value="">Niech Riposta zdecyduje</option>
-          <option>Chcę uprzejmie zakończyć temat</option>
-          <option>Chcę podtrzymać rozmowę</option>
-          <option>Chcę odmówić, ale nikogo nie urazić</option>
-          <option>Chcę postawić granicę</option>
-          <option>Chcę rozbawić</option>
-          <option>Chcę się umówić na spotkanie</option>
-          <option>Chcę wygrać tę kłótnię</option>
-        </select>
-      </div>
-      <label for="spice">Poziom pazura</label>
-      <div class="spice" id="spiceBox">
-        <div class="face" id="spiceFace" aria-hidden="true">😏</div>
-        <div>
-          <input type="range" id="spice" min="1" max="5" step="1" value="3" aria-describedby="spiceName">
-          <div class="name" id="spiceName">Zadziornie</div>
-          <div class="desc" id="spiceDesc">Z humorem i charakterem</div>
-        </div>
-      </div>
-      <div class="go">
-        <button class="btn" id="goBtn" type="submit">Daj mi ripostę · 0,50 zł</button>
-        <button class="btn ghost" id="stopBtn" type="button" hidden>Stop</button>
-      </div>
-      <div class="status" id="status" role="status"></div>
-    </form>
+  <div class="tabs" role="tablist" aria-label="Tryb" id="tabs">
+    <button class="tab" role="tab" type="button" id="tabRiposta" aria-selected="true" aria-controls="form">💬 Riposta</button>
+    <button class="tab" role="tab" type="button" id="tabDekoder" aria-selected="false" aria-controls="dForm" tabindex="-1" hidden>🕵️ Dekoder <small>Co on/ona miał(a) na myśli?</small></button>
+  </div>
 
-    <div class="panel">
-      <h2>Twoje odpowiedzi</h2>
-      <div class="thread" id="thread"></div>
+  <div class="bench" id="apka">
+    <div class="forms">
+      <form class="panel" id="form" novalidate role="tabpanel" aria-labelledby="tabRiposta">
+        <h2>Na co nie wiesz, jak odpisać?</h2>
+        <span class="lbl" id="whoLbl">Od kogo?</span>
+        <div class="who" role="group" aria-labelledby="whoLbl" id="who"></div>
+        <div class="field drop" id="rDrop">
+          <label for="msg">Treść wiadomości</label>
+          <textarea id="msg" maxlength="1500" placeholder="Wklej tu wiadomość…">Hej, dawno się nie odzywałeś… Wszystko ok? Bo ja ostatnio dużo o nas myślałam.</textarea>
+          <div class="count" id="count">0 / 1500</div>
+          <div class="shot" id="rShot" hidden>
+            <input type="file" id="rFile" accept="image/png,image/jpeg,image/webp" hidden>
+            <button class="btn ghost sm" type="button" id="rPick">📷 Wrzuć screena rozmowy</button>
+            <span class="hint">albo wklej (Ctrl+V) lub przeciągnij tutaj</span>
+            <div class="thumb" id="rThumb" hidden>
+              <img id="rImg" alt="Podgląd wrzuconego zrzutu ekranu">
+              <div><b>Screen dodany</b><small id="rInfo"></small></div>
+              <button class="btn ghost sm" type="button" id="rDel" aria-label="Usuń zrzut ekranu">✕ Usuń</button>
+            </div>
+          </div>
+        </div>
+        <div class="field">
+          <label for="goal">Czego chcesz?</label>
+          <select id="goal" class="select">
+            <option value="">Niech Riposta zdecyduje</option>
+            <option>Chcę uprzejmie zakończyć temat</option>
+            <option>Chcę podtrzymać rozmowę</option>
+            <option>Chcę odmówić, ale nikogo nie urazić</option>
+            <option>Chcę postawić granicę</option>
+            <option>Chcę rozbawić</option>
+            <option>Chcę się umówić na spotkanie</option>
+            <option>Chcę wygrać tę kłótnię</option>
+          </select>
+        </div>
+        <label for="spice">Poziom pazura</label>
+        <div class="spice" id="spiceBox">
+          <div class="face" id="spiceFace" aria-hidden="true">😏</div>
+          <div>
+            <input type="range" id="spice" min="1" max="5" step="1" value="3" aria-describedby="spiceName">
+            <div class="name" id="spiceName">Zadziornie</div>
+            <div class="desc" id="spiceDesc">Z humorem i charakterem</div>
+          </div>
+        </div>
+        <div class="go">
+          <button class="btn" id="goBtn" type="submit">Daj mi ripostę · 0,50 zł</button>
+          <button class="btn ghost" id="stopBtn" type="button" hidden>Stop</button>
+        </div>
+        <div class="status" id="status" role="status"></div>
+      </form>
+
+      <form class="panel" id="dForm" novalidate role="tabpanel" aria-labelledby="tabDekoder" hidden>
+        <h2>Co on/ona miał(a) na myśli?</h2>
+        <p class="sub">Dekoder tłumaczy z polskiego na polski. Wklej „ok.”, „spoko” albo „jak uważasz”, a powiemy Ci, co to naprawdę znaczy.</p>
+        <span class="lbl" id="dWhoLbl">Od kogo?</span>
+        <div class="who" role="group" aria-labelledby="dWhoLbl" id="dWho"></div>
+        <div class="field drop" id="dDrop">
+          <label for="dMsg">Treść wiadomości</label>
+          <textarea id="dMsg" maxlength="1500" placeholder="np. „ok.” (z kropką. Z KROPKĄ.)"></textarea>
+          <div class="count" id="dCount">0 / 1500</div>
+          <div class="shot" id="dShot" hidden>
+            <input type="file" id="dFile" accept="image/png,image/jpeg,image/webp" hidden>
+            <button class="btn ghost sm" type="button" id="dPick">📷 Wrzuć screena rozmowy</button>
+            <span class="hint">albo wklej (Ctrl+V) lub przeciągnij tutaj</span>
+            <div class="thumb" id="dThumb" hidden>
+              <img id="dImg" alt="Podgląd wrzuconego zrzutu ekranu">
+              <div><b>Screen dodany</b><small id="dInfo"></small></div>
+              <button class="btn ghost sm" type="button" id="dDel" aria-label="Usuń zrzut ekranu">✕ Usuń</button>
+            </div>
+          </div>
+        </div>
+        <div class="go">
+          <button class="btn" id="dGoBtn" type="submit">Rozszyfruj · 0,50 zł</button>
+          <button class="btn ghost" id="dStopBtn" type="button" hidden>Stop</button>
+        </div>
+        <div class="status" id="dStatus" role="status"></div>
+      </form>
+    </div>
+
+    <div class="panel results">
+      <h2 id="resH">Twoje odpowiedzi</h2>
+      <div class="thread" id="thread" aria-live="polite"></div>
+      <div class="thread" id="dThread" aria-live="polite" hidden></div>
     </div>
   </div>
+
+  <section class="more" aria-labelledby="histH" id="historia">
+    <div class="hist-head">
+      <h2 id="histH">Ostatnie riposty</h2>
+      <button class="btn ghost sm" type="button" id="histClear" hidden>Wyczyść historię</button>
+    </div>
+    <p class="note-local">🔒 Historia jest zapisana tylko na tym urządzeniu, w tej przeglądarce. Nie trzymamy jej na serwerze.</p>
+    <ol class="hist" id="hist"></ol>
+    <div class="confirm" id="histConfirm" hidden>
+      <span>Wyczyścić całą historię? Tego nie da się cofnąć.</span>
+      <button class="btn sm" type="button" id="histYes">Tak, wyczyść</button>
+      <button class="btn ghost sm" type="button" id="histNo">Zostaw</button>
+    </div>
+  </section>
 
   <section class="more" aria-labelledby="howH">
     <h2 id="howH">Jak to działa</h2>
     <div class="steps">
-      <div class="step"><div class="n">Krok 1</div><h3>Wklej wiadomość</h3><p>Tę, nad którą siedzisz od 20 minut i piszesz „hej”, a potem kasujesz.</p></div>
+      <div class="step"><div class="n">Krok 1</div><h3>Wklej wiadomość</h3><p>Tę, nad którą siedzisz od 20 minut i piszesz „hej”, a potem kasujesz. Albo wrzuć screena rozmowy.</p></div>
       <div class="step"><div class="n">Krok 2</div><h3>Ustaw pazur</h3><p>Od anielskiej łagodności po ripostę, o której będą mówić na weselu.</p></div>
       <div class="step"><div class="n">Krok 3</div><h3>Kopiuj i wysyłaj</h3><p>Trzy wersje do wyboru. Płacisz 50 groszy, oszczędzasz godzinę nerwów.</p></div>
     </div>
@@ -118,8 +195,9 @@
   <section class="more" aria-labelledby="faqH">
     <h2 id="faqH">Pytania</h2>
     <div class="faq">
-      <details><summary>Czy zapisujecie moje wiadomości?</summary><p>Nie. Treść wiadomości trafia do AI tylko po to, żeby napisać odpowiedź, i nie zapisujemy jej w naszej bazie. Szczegóły w polityce prywatności.</p></details>
+      <details><summary>Czy zapisujecie moje wiadomości?</summary><p>Nie. Treść wiadomości i zrzuty ekranu trafiają do AI tylko po to, żeby napisać odpowiedź, i nie zapisujemy ich w naszej bazie. Historia ostatnich ripost jest tylko w Twojej przeglądarce. Szczegóły w polityce prywatności.</p></details>
       <details><summary>Co jeśli riposta się nie uda?</summary><p>Jeśli AI nie odpowie albo wystąpi błąd, nie pobieramy opłaty. Jeśli odpowiedź po prostu Ci się nie podoba, zmień poziom pazura i spróbuj jeszcze raz.</p></details>
+      <details><summary>Zmieniam telefon. Co z moim portfelem?</summary><p>Kliknij kwotę w portfelu u góry, wybierz „Pokaż kod przenoszenia” i wpisz ten kod na nowym telefonie w „Mam kod z innego telefonu”.</p></details>
       <details><summary>Czy ex się dowie, że to AI?</summary><p>Od nas nie. Ale jeśli nagle zaczniesz pisać jak poeta, może coś podejrzewać.</p></details>
       <details><summary>Czy mogę odpisać szefowi „z pazurem”?</summary><p>Możesz. Riposta przy szefie i kliencie trzyma klasę nawet na najwyższym poziomie, więc pracę zachowasz. Raczej.</p></details>
       <details><summary>Dlaczego minimalne doładowanie to 5 zł, a nie 50 groszy?</summary><p>Bo przy płatności na 50 groszy większość kwoty zjadłaby prowizja banku. Doładowujesz raz, a potem płacisz po 50 groszy z portfela.</p></details>
@@ -150,6 +228,54 @@
     <p class="status" id="payStatus" role="status"></p>
     <p class="demo-pill" id="demoPill" hidden>Tryb demo: płatność jest symulowana, nic nie płacisz.</p>
   </form>
+</div>
+
+<div class="modal" id="walletModal" hidden role="dialog" aria-modal="true" aria-labelledby="walletH">
+  <div class="sheet">
+    <button class="btn ghost sm close" type="button" id="walletClose" aria-label="Zamknij">✕</button>
+    <h2 id="walletH">Mój portfel</h2>
+    <div class="wbal">
+      <span class="big-coin" aria-hidden="true">50</span>
+      <div><div class="wbal-amt mono" id="wBal">0,00 zł</div><div class="status" id="wLeft"></div></div>
+      <button class="btn sm coin-btn" type="button" id="wTopup">Doładuj</button>
+    </div>
+    <dl class="wstats">
+      <div><dt>Riposty</dt><dd class="mono" id="wR">0</dd></div>
+      <div><dt>Dekoder</dt><dd class="mono" id="wD">0</dd></div>
+      <div><dt>Wydane</dt><dd class="mono" id="wS">0,00 zł</dd></div>
+    </dl>
+    <div class="wref"><span class="lbl">Kod polecający</span><span class="code mono" id="wRef">······</span></div>
+
+    <section class="wcode" aria-labelledby="wCodeH">
+      <h3 id="wCodeH">Przenieś portfel na inny telefon</h3>
+      <div id="wCodeBox">
+        <p class="status">Kod przenoszenia działa jak klucz do portfela. Nie pokazuj go nikomu (nawet ex).</p>
+        <button class="btn sm" type="button" id="wShow">🔑 Pokaż kod przenoszenia</button>
+        <div id="wCodeVal" hidden>
+          <div class="wcode-val mono" id="wCode">RIP-····-····-····</div>
+          <div class="row">
+            <button class="btn sm" type="button" id="wCopy">Kopiuj</button>
+            <button class="btn ghost sm" type="button" id="wRotate">Wygeneruj nowy kod</button>
+          </div>
+        </div>
+        <div class="confirm" id="wConfirm" hidden>
+          <span>Na pewno? Stary kod przestanie działać od razu.</span>
+          <button class="btn sm" type="button" id="wRotateYes">Tak, nowy kod</button>
+          <button class="btn ghost sm" type="button" id="wRotateNo">Anuluj</button>
+        </div>
+        <form id="wRestore" class="mt" novalidate>
+          <label for="wRestoreCode">Mam kod z innego telefonu</label>
+          <div class="row">
+            <input class="input mono" id="wRestoreCode" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="RIP-XXXX-XXXX-XXXX">
+            <button class="btn sm" type="submit" id="wRestoreBtn">Przenieś portfel</button>
+          </div>
+          <p class="hint">Ten telefon przełączy się na portfel z kodu.</p>
+        </form>
+        <p class="status" id="wCodeStatus" role="status"></p>
+      </div>
+      <p class="demo-pill" id="wDemo" hidden>Przenoszenie portfela jest dostępne w pełnej wersji.</p>
+    </section>
+  </div>
 </div>
 
 <div class="modal" id="shareModal" hidden role="dialog" aria-modal="true" aria-labelledby="shareH">
