@@ -1,5 +1,5 @@
 // Testy funkcji z kontraktu v2: zrzuty ekranu, Dekoder, kod portfela, panel właściciela, limity body, PWA.
-import { test, before, after } from "node:test";
+import { test, before, after, mock } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 import fs from "node:fs";
@@ -190,6 +190,10 @@ test("kod portfela: format, stały, rotacja unieważnia stary, przywrócenie prz
   const r = await b("/api/wallet/restore", { code: code1.toLowerCase().replace(/-/g, "") });
   assert.equal(r.status, 200);
   assert.equal(r.json.me.balanceGr, 500);
+  assert.equal(r.json.mergedGr, 0);
+  assert.match(r.json.newCode, /^RIP-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/);
+  assert.notEqual(r.json.newCode, code1);
+  assert.equal((await a("/api/wallet/code")).json.code, r.json.newCode); // automatyczna rotacja po przywróceniu
   assert.equal((await b("/api/me")).json.balanceGr, 500); // ciasteczko wskazuje już ten portfel
   assert.equal((await b("/api/me")).json.referralCode, (await a("/api/me")).json.referralCode);
 
@@ -312,4 +316,146 @@ test("PWA: sw.js z nagłówkami, typy plików, CSP", async () => {
   const admin = await (await fetch(base + "/admin.html")).text();
   assert.match(admin, /^<!doctype html>/);
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------- poprawki z przeglądu kodu
+
+test("TRUST_PROXY: IP z ostatniego wpisu X-Forwarded-For (lewego nie da się podrobić)", async () => {
+  const { base } = await start();
+  const real = "10.77.0.1";
+  // Klient podrabia lewy wpis przy każdej próbie; proxy dopisuje prawdziwy adres na końcu.
+  for (let i = 0; i < 5; i++) {
+    const r = await client(base, { ip: `6.6.6.${i}, ${real}` })("/api/wallet/restore", { code: "RIP-AAAA-BBBB-CCCC" });
+    assert.equal(r.status, 404);
+  }
+  const blocked = await client(base, { ip: `6.6.6.99, ${real}` })("/api/wallet/restore", { code: "RIP-AAAA-BBBB-CCCC" });
+  assert.equal(blocked.status, 429);
+  // Ten sam podrobiony lewy wpis, ale inne prawdziwe IP: przechodzi.
+  assert.equal((await client(base, { ip: `6.6.6.99, 10.77.0.2` })("/api/wallet/restore", { code: "RIP-AAAA-BBBB-CCCC" })).status, 404);
+});
+
+test("darmowe riposty: max N nowych portfeli z darmowymi na IP dziennie, kolejne z freeLeft = 0", async () => {
+  const { base } = await start({ cfgOver: { freeWalletsPerIpPerDay: 5 } });
+  const ip = "10.55.0.1";
+  for (let i = 0; i < 5; i++) assert.equal((await client(base, { ip })("/api/me")).json.freeLeft, 3, `portfel ${i + 1}`);
+  const capped = client(base, { ip });
+  const me = (await capped("/api/me")).json;
+  assert.equal(me.freeLeft, 0);
+  assert.equal(me.ripostesLeft, 0);
+  // Portfel działa z płatnym doładowaniem.
+  assert.equal((await capped("/api/riposta", { who: "Ex", message: "hej" })).json.error, "no_funds");
+  const t = await capped("/api/topup", { packageId: "maly", acceptTerms: true, waiveWithdrawal: true });
+  await capped("/api/payments/mock/webhook", { paymentId: t.json.paymentId, blik: "123456" });
+  const r = await capped("/api/riposta", { who: "Ex", message: "hej" });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.paidWith, "wallet");
+  // Ten sam portfel (ciasteczko) nie traci nic przy kolejnych wejściach; inne IP dalej dostaje darmowe.
+  assert.equal((await client(base, { ip: "10.55.0.2" })("/api/me")).json.freeLeft, 3);
+  // Konfigurowalne: 0 = brak darmowych w ogóle.
+  const off = await start({ cfgOver: { freeWalletsPerIpPerDay: 0 } });
+  assert.equal((await client(off.base)("/api/me")).json.freeLeft, 0);
+});
+
+test("kod polecający: Dekoder, saldo albo płatność = nie nowy użytkownik", async () => {
+  const owner = client();
+  const code = (await owner("/api/me")).json.referralCode;
+
+  const dek = client();
+  await dek("/api/dekoder", { who: "Ex", message: "ok." });
+  const r1 = await dek("/api/referral", { code });
+  assert.equal(r1.status, 409);
+  assert.equal(r1.json.error, "not_new");
+
+  // Rozpoczęta (nawet nieopłacona) płatność też wyklucza.
+  const pay = client();
+  await pay("/api/me");
+  await pay("/api/topup", { packageId: "maly", acceptTerms: true, waiveWithdrawal: true });
+  assert.equal((await pay("/api/referral", { code })).json.error, "not_new");
+
+  // Riposta też (jak dotąd).
+  const rip = client();
+  await rip("/api/riposta", { who: "Ex", message: "hej" });
+  assert.equal((await rip("/api/referral", { code })).json.error, "not_new");
+
+  // Naprawdę nowy: działa.
+  const fresh = client();
+  await fresh("/api/me");
+  assert.equal((await fresh("/api/referral", { code })).status, 200);
+});
+
+test("przywracanie portfela: płatne saldo z tego telefonu przechodzi, darmowe nie; kod się zmienia", async () => {
+  const topup = async (c, pkg) => {
+    const t = await c("/api/topup", { packageId: pkg, acceptTerms: true, waiveWithdrawal: true });
+    await c("/api/payments/mock/webhook", { paymentId: t.json.paymentId, blik: "123456" });
+  };
+  const a = client();
+  await a("/api/me");
+  await topup(a, "maly"); // 500 gr
+  const code = (await a("/api/wallet/code")).json.code;
+
+  const b = client();
+  await b("/api/me");
+  await topup(b, "pakiet"); // 1000 gr na drugim telefonie (+3 darmowe, które nie przechodzą)
+  const ridB = b.cookie().split("=")[1];
+  const r = await b("/api/wallet/restore", { code });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.mergedGr, 1000);
+  assert.equal(r.json.me.balanceGr, 1500);
+  assert.equal(r.json.me.freeLeft, 3); // darmowe portfela A, bez dodanych z B
+  assert.notEqual(r.json.newCode, code);
+  const oldB = app.store.getUser(ridB); // stary portfel B: płatne saldo wyzerowane, darmowe zostają
+  assert.equal(oldB.balanceGr, 0);
+  assert.equal(oldB.freeLeft, 3);
+  assert.equal((await a("/api/me")).json.balanceGr, 1500); // A widzi scalone saldo
+
+  // Użyty kod nie działa drugi raz, nowy działa.
+  const c = client();
+  assert.equal((await c("/api/wallet/restore", { code })).status, 404);
+  const again = await c("/api/wallet/restore", { code: r.json.newCode });
+  assert.equal(again.status, 200);
+  assert.equal(again.json.mergedGr, 0);
+
+  // Ten sam portfel: bez scalania, ale z rotacją.
+  const self = await a("/api/wallet/restore", { code: again.json.newCode });
+  assert.equal(self.status, 200);
+  assert.equal(self.json.mergedGr, 0);
+  assert.equal(self.json.me.balanceGr, 1500);
+  assert.notEqual(self.json.newCode, again.json.newCode);
+});
+
+test("panel właściciela: 10 nieudanych prób na minutę na IP, potem 429", async () => {
+  const { base } = await start();
+  const ip = "10.66.0.1";
+  for (let i = 0; i < 10; i++) {
+    assert.equal((await client(base, { ip })("/api/admin/stats", undefined, { Authorization: "Bearer zly" + i })).status, 401);
+  }
+  const r = await client(base, { ip })("/api/admin/stats", undefined, { Authorization: "Bearer zly" });
+  assert.equal(r.status, 429);
+  assert.equal(r.json.error, "rate_limited");
+  // Zablokowane IP nie może też zgadywać dalej poprawnym tokenem w tej minucie.
+  assert.equal((await client(base, { ip })("/api/admin/stats", undefined, { Authorization: "Bearer " + ADMIN })).status, 429);
+  // Inne IP z dobrym tokenem: OK. Udane logowania nie liczą się do limitu.
+  const other = client(base, { ip: "10.66.0.2" });
+  for (let i = 0; i < 12; i++) assert.equal((await other("/api/admin/stats", undefined, { Authorization: "Bearer " + ADMIN })).status, 200);
+});
+
+test("limit zapytań: okno 60 s, po minucie znowu można; stare klucze sprząta timer", async () => {
+  mock.timers.enable({ apis: ["setInterval", "Date"], now: Date.now() });
+  try {
+    const handler = createApp({ store: createStore(null), ai: { mode: "mock", ...createAi({ mode: "mock", mockDelayMs: 0 }) }, payments: mockProvider(), cfg: { ...cfg, rateLimitPerMinute: 3 } });
+    const server = http.createServer(handler);
+    await new Promise((r) => server.listen(0, r));
+    servers.push(server);
+    const c = client(`http://127.0.0.1:${server.address().port}`);
+    for (let i = 0; i < 3; i++) assert.equal((await c("/api/riposta", { who: "Ex", message: "hej" })).status, 200);
+    const r = await c("/api/riposta", { who: "Ex", message: "hej" });
+    assert.equal(r.status, 429);
+    assert.equal(r.json.error, "rate_limited");
+    assert.ok(handler.rateLimitKeys() >= 2); // u:<id> i ip:<ip>
+    mock.timers.tick(60_000); // timer sprzątający: okna starsze niż minuta znikają
+    assert.equal(handler.rateLimitKeys(), 0);
+    assert.equal((await c("/api/riposta", { who: "Ex", message: "hej" })).status, 402); // limit minął (darmowe zużyte)
+  } finally {
+    mock.timers.reset();
+  }
 });

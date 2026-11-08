@@ -10,7 +10,8 @@ import { stripeProvider } from "../server/payments/stripe.js";
 import { config } from "../server/config.js";
 
 let server, base, store, failNext = false;
-const cfg = { ...config, publicUrl: "http://localhost", rateLimitPerMinute: 1000 };
+// Wszyscy klienci tu mają to samo IP (127.0.0.1): limit darmowych portfeli na IP testujemy osobno.
+const cfg = { ...config, publicUrl: "http://localhost", rateLimitPerMinute: 1000, freeWalletsPerIpPerDay: 1000 };
 
 before(async () => {
   store = createStore(null);

@@ -134,6 +134,21 @@ export function createStore(file) {
       persist();
       return u;
     },
+    // Przenosi całe płatne saldo (balanceGr, bez darmowych) z jednego portfela na drugi. Zwraca kwotę.
+    moveBalance(fromId, toId) {
+      const from = db.users[fromId], to = db.users[toId];
+      if (!from || !to) throw new Error("user_not_found");
+      if (fromId === toId) return 0;
+      const gr = Math.max(0, from.balanceGr || 0);
+      from.balanceGr -= gr;
+      to.balanceGr += gr;
+      persist();
+      return gr;
+    },
+    // Czy użytkownik ma jakąkolwiek płatność (w dowolnym statusie).
+    hasPayments(userId) {
+      return Object.values(db.payments).some((p) => p.userId === userId);
+    },
     userIdByReferral(code) {
       const c = String(code || "").toUpperCase();
       return (Object.hasOwn(db.referralCodes, c) && db.referralCodes[c]) || null;

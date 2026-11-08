@@ -17,7 +17,11 @@ Użytkownik jest rozpoznawany po ciasteczku `rid` (HttpOnly). Ceny w groszach.
 
 - `GET /api/config` → dodatkowo: `"features": { "images": true, "dekoder": true, "walletCode": true }`, `"dekoderPriceGr": 50`, `"maxImageBytes": 1572864`
 - `GET /api/me` → `me`
-- `POST /api/topup`, `GET /api/payments/:id`, `POST /api/payments/:provider/webhook`, `POST /api/referral` → bez zmian
+- `POST /api/topup`, `GET /api/payments/:id`, `POST /api/payments/:provider/webhook` → bez zmian
+- `POST /api/referral` → kod działa tylko dla nowych osób: 409 `not_new`, gdy użytkownik ma już riposty, użycia Dekodera,
+  saldo, wydatki albo jakąkolwiek płatność.
+- Nowy portfel (pierwsze `GET /api/me` bez ciasteczka) dostaje `freeOnStart` darmowych ripost, ale najwyżej 5 portfeli
+  z darmowymi na IP na dzień (Europe/Warsaw; `FREE_WALLETS_PER_IP_PER_DAY`). Kolejne mają `freeLeft: 0` i działają z doładowaniem.
 - `GET /healthz`
 
 ## NOWE / ZMIENIONE
@@ -62,13 +66,16 @@ UWAGA: klucz rady to `"rada"` (zwykłe ASCII). `czerwoneFlagi` i `zieloneFlagi` 
 - `GET /api/wallet/code` → `{ "code": "RIP-ABCD-EFGH-JKLM" }` — tajny kod portfela (tworzony przy pierwszym wywołaniu, 12 znaków z alfabetu bez 0/O/1/I).
 - `POST /api/wallet/code/rotate` → `{ "code": "RIP-...." }` — nowy kod, stary przestaje działać.
 - `POST /api/wallet/restore` body `{ "code": "RIP-ABCD-EFGH-JKLM" }` (wielkość liter i myślniki bez znaczenia) →
-  200 `{ "me": { ... } }` + ustawia ciasteczko `rid` na ten portfel.
+  200 `{ "me": { ... }, "newCode": "RIP-....", "mergedGr": 300 }` + ustawia ciasteczko `rid` na ten portfel.
+  - Scalanie: jeśli to urządzenie miało już inny portfel (ciasteczko `rid`), jego płatne saldo (`balanceGr`, bez `freeLeft`)
+    jest przenoszone do przywracanego portfela, a na starym zerowane. `mergedGr` = przeniesiona kwota (0, gdy nic albo ten sam portfel).
+  - Rotacja: po udanym przywróceniu kod jest automatycznie wymieniany (`newCode`), stary (użyty) kod przestaje działać.
   404 `bad_code` ("Nie ma portfela z takim kodem."). Limit: 5 prób na minutę na IP → 429.
 
 ### Panel właściciela
 
 - `GET /api/admin/stats` z nagłówkiem `Authorization: Bearer <ADMIN_TOKEN>` (zmienna środowiskowa; gdy pusta → 404).
-  Zły token → 401. Odpowiedź:
+  Zły token → 401. Po 10 nieudanych próbach w ciągu minuty z jednego IP → 429 `rate_limited`. Odpowiedź:
 ```json
 {
   "users": 120, "ripostes": 840, "dekoder": 130, "freeUsed": 300,

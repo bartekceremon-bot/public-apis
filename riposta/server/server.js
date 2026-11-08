@@ -5,7 +5,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config, ROOT } from "./config.js";
-import { createStore } from "./store.js";
+import { createStore, today } from "./store.js";
 import { createAi, AiError, WHO } from "./ai.js";
 import { createPayments } from "./payments/index.js";
 
@@ -59,25 +59,58 @@ function safeEqual(a, b) {
 }
 
 export function createApp({ store, ai, payments, cfg = config, publicDir = PUBLIC_DIR }) {
-  const hits = new Map(); // limit zapytań: klucz -> [znaczniki czasu]
+  // Limit zapytań: okno 60 s na klucz, { start, n }. Koszt na zapytanie O(1);
+  // przeterminowane klucze sprząta timer co minutę (unref: nie blokuje wyjścia procesu ani testów).
+  const WINDOW_MS = 60_000;
+  const hits = new Map();
+  // Darmowe riposty dla nowych portfeli: ile portfeli z darmowymi dostało dziś (dzień w Warszawie) dane IP.
+  const freeGrants = new Map();
+  let freeGrantsDay = today();
+  const freeWalletsPerIpPerDay = cfg.freeWalletsPerIpPerDay ?? 5;
+  const pruneTimer = setInterval(() => {
+    const now = Date.now();
+    for (const [k, v] of hits) if (now - v.start >= WINDOW_MS) hits.delete(k);
+    if (today() !== freeGrantsDay) { freeGrants.clear(); freeGrantsDay = today(); }
+  }, WINDOW_MS);
+  pruneTimer.unref?.();
   const maxImageBytes = cfg.maxImageBytes || 1572864;
   const dekoderPriceGr = cfg.dekoderPriceGr ?? cfg.priceGr;
 
+  function windowFor(key, now = Date.now()) {
+    let w = hits.get(key);
+    if (!w || now - w.start >= WINDOW_MS) { w = { start: now, n: 0 }; hits.set(key, w); }
+    return w;
+  }
+  // Liczy zapytanie i zwraca true, gdy przekroczono limit.
   function rateLimited(key, limit = cfg.rateLimitPerMinute) {
-    const now = Date.now();
-    const arr = (hits.get(key) || []).filter((t) => now - t < 60_000);
-    arr.push(now);
-    hits.set(key, arr);
-    if (hits.size > 50_000) for (const [k, v] of hits) if (!v.some((t) => now - t < 60_000)) hits.delete(k);
-    return arr.length > limit;
+    const w = windowFor(key);
+    w.n += 1;
+    return w.n > limit;
+  }
+  // Tylko sprawdza (bez liczenia), np. dla limitu nieudanych logowań.
+  function overLimit(key, limit) {
+    const w = hits.get(key);
+    return Boolean(w && Date.now() - w.start < WINDOW_MS && w.n >= limit);
   }
 
+  // Za reverse proxy bierzemy OSTATNI wpis X-Forwarded-For: dopisuje go nasze (zaufane) proxy.
+  // Wcześniejsze wpisy przysyła klient i można je podrobić. Zakładamy dokładnie jeden skok proxy.
   function clientIp(req) {
     if (cfg.trustProxy) {
-      const xff = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
-      if (xff) return xff;
+      const parts = String(req.headers["x-forwarded-for"] || "").split(",").map((s) => s.trim()).filter(Boolean);
+      if (parts.length) return parts[parts.length - 1];
     }
     return req.socket.remoteAddress || "?";
+  }
+
+  // Czy to IP może dziś jeszcze dostać portfel z darmowymi ripostami? (liczy przyznanie)
+  function grantFree(ip) {
+    const day = today();
+    if (day !== freeGrantsDay) { freeGrants.clear(); freeGrantsDay = day; }
+    const n = freeGrants.get(ip) || 0;
+    if (n >= freeWalletsPerIpPerDay) return false;
+    freeGrants.set(ip, n + 1);
+    return true;
   }
 
   function send(res, status, body, headers = {}) {
@@ -136,7 +169,9 @@ export function createApp({ store, ai, payments, cfg = config, publicDir = PUBLI
     const rid = cookies(req).rid;
     let user = rid && store.getUser(rid);
     if (!user) {
-      user = store.createUser(cfg.freeOnStart);
+      // Limit darmowych na IP i dzień: kolejne portfele działają, ale tylko z płatnym doładowaniem.
+      const free = cfg.freeOnStart > 0 && grantFree(clientIp(req)) ? cfg.freeOnStart : 0;
+      user = store.createUser(free);
       setRidCookie(res, user.id);
     }
     return user;
@@ -301,15 +336,26 @@ export function createApp({ store, ai, payments, cfg = config, publicDir = PUBLI
       const { code } = await readJson(req);
       const userId = store.userIdByWalletCode(code);
       if (!userId) return fail(res, 404, "bad_code", "Nie ma portfela z takim kodem.");
+      // Płatne saldo z tego telefonu (bez darmowych) przechodzi do przywracanego portfela, żeby nic nie przepadło.
+      const current = store.getUser(cookies(req).rid);
+      const mergedGr = current && current.id !== userId ? store.moveBalance(current.id, userId) : 0;
+      // Kod widziany na ekranie mógł ktoś podejrzeć: po przywróceniu od razu go wymieniamy.
+      const newCode = store.rotateWalletCode(userId);
       setRidCookie(res, userId);
-      console.log(JSON.stringify({ ev: "wallet_restore" }));
-      return send(res, 200, { me: publicUser(store.getUser(userId)) });
+      console.log(JSON.stringify({ ev: "wallet_restore", merged: mergedGr > 0 }));
+      return send(res, 200, { me: publicUser(store.getUser(userId)), newCode, mergedGr });
     }
 
     if (method === "GET" && pathname === "/api/admin/stats") {
       if (!cfg.adminToken) return fail(res, 404, "not_found", "Nie ma takiego adresu API.");
+      const failKey = "adminfail:" + clientIp(req);
+      const failLimit = cfg.adminFailPerMinute ?? 10;
+      if (overLimit(failKey, failLimit)) return fail(res, 429, "rate_limited", "Za dużo prób. Odczekaj minutę.");
       const m = String(req.headers.authorization || "").match(/^Bearer\s+(.+)$/i);
-      if (!m || !safeEqual(m[1].trim(), cfg.adminToken)) return fail(res, 401, "unauthorized", "Zły token.");
+      if (!m || !safeEqual(m[1].trim(), cfg.adminToken)) {
+        rateLimited(failKey, failLimit);
+        return fail(res, 401, "unauthorized", "Zły token.");
+      }
       return send(res, 200, store.adminStats(30));
     }
 
@@ -320,7 +366,9 @@ export function createApp({ store, ai, payments, cfg = config, publicDir = PUBLI
       if (!ownerId) return fail(res, 404, "bad_code", "Nie ma takiego kodu.");
       if (ownerId === user.id) return fail(res, 400, "own_code", "Sprytne, ale własnego kodu nie wpiszesz 😏");
       if (user.referredBy) return fail(res, 409, "already", "Kod polecający można użyć tylko raz.");
-      if (user.stats.ripostes > 0 || user.balanceGr > 0) return fail(res, 409, "not_new", "Kod działa tylko dla nowych osób.");
+      const used = user.stats.ripostes > 0 || (user.stats.dekoder || 0) > 0 || (user.stats.spentGr || 0) > 0
+        || user.balanceGr > 0 || store.hasPayments(user.id);
+      if (used) return fail(res, 409, "not_new", "Kod działa tylko dla nowych osób.");
       store.updateUser(user.id, (u) => { u.referredBy = ownerId; u.freeLeft += cfg.referralBonus; });
       store.updateUser(ownerId, (u) => { u.freeLeft += cfg.referralBonus; });
       return send(res, 200, { me: publicUser(store.getUser(user.id)), bonus: cfg.referralBonus });
@@ -379,7 +427,7 @@ export function createApp({ store, ai, payments, cfg = config, publicDir = PUBLI
     return fail(res, 404, "not_found", "Nie ma takiego adresu API.");
   }
 
-  return async function handler(req, res) {
+  async function handler(req, res) {
     const url = new URL(req.url, "http://localhost");
     try {
       if (url.pathname === "/healthz") return send(res, 200, { ok: true });
@@ -393,7 +441,9 @@ export function createApp({ store, ai, payments, cfg = config, publicDir = PUBLI
       const tooLargeMsg = IMAGE_ROUTES.has(url.pathname) ? "Za duży plik. Obsługujemy zdjęcia do 1,5 MB." : "Za dużo tekstu.";
       if (!res.headersSent && !res.destroyed) return fail(res, status, err.message || "error", status === 413 ? tooLargeMsg : "Błąd serwera.");
     }
-  };
+  }
+  handler.rateLimitKeys = () => hits.size; // do testów
+  return handler;
 }
 
 // Start serwera, gdy plik uruchomiono bezpośrednio.

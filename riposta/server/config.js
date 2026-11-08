@@ -65,7 +65,11 @@ export const config = {
 
   rateLimitPerMinute: Number(env.RATE_LIMIT_PER_MINUTE || 20),
   walletRestorePerMinute: 5, // próby przywrócenia portfela kodem na IP na minutę
-  // Za reverse proxy (Docker/nginx/Caddy): ustaw TRUST_PROXY=true, żeby IP brać z X-Forwarded-For.
+  adminFailPerMinute: 10, // nieudane logowania do panelu właściciela na IP na minutę (potem 429)
+  // Ile nowych portfeli Z darmowymi ripostami może dostać jedno IP dziennie (dzień w Warszawie). Kolejne: freeLeft = 0.
+  freeWalletsPerIpPerDay: env.FREE_WALLETS_PER_IP_PER_DAY ? Number(env.FREE_WALLETS_PER_IP_PER_DAY) : 5,
+  // Za reverse proxy (Docker/nginx/Caddy): ustaw TRUST_PROXY=true, żeby IP brać z X-Forwarded-For
+  // (ostatni wpis, dopisany przez proxy; zakładamy dokładnie jeden skok proxy).
   trustProxy: env.TRUST_PROXY === "true",
 
   // Panel właściciela: GET /api/admin/stats z nagłówkiem Authorization: Bearer <ADMIN_TOKEN>. Puste = panel wyłączony.
